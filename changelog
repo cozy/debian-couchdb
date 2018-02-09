@@ -1,3 +1,9 @@
+couchdb (2.1.1-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- aeris <aeris@cozycloud.cc>  Tue, 06 Feb 2018 16:19:31 +0100
+
 couchdb (2.1.0-1) unstable; urgency=low
 
   * Build for stretch
