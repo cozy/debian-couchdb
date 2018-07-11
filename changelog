@@ -1,3 +1,9 @@
+couchdb (2.1.2-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- aeris <aeris@cozycloud.cc>  Wed, 11 Jul 2018 16:35:51 +0000
+
 couchdb (2.1.1-1) unstable; urgency=medium
 
   * New upstream release
