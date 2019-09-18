@@ -30,7 +30,7 @@ setadminpass() {
       /opt/couchdb/etc/default.d/*.ini \
       /opt/couchdb/etc/local.ini \
       /opt/couchdb/etc/local.d/*.ini; do
-    if grep -q '^admin = ' $i >/dev/null 2>&1; then
+    if grep -q '^admin \?= ' $i >/dev/null 2>&1; then
       return 0
     fi
   done
@@ -62,7 +62,7 @@ setbindaddress() {
   for i in /opt/couchdb/etc/default.d/*.ini \
       /opt/couchdb/etc/local.ini \
       /opt/couchdb/etc/local.d/*.ini; do
-    if grep -q '^bind_address = ' $i >/dev/null 2>&1; then
+    if grep -q '^bind_address \?= ' $i >/dev/null 2>&1; then
       return 0
     fi
   done
@@ -74,6 +74,25 @@ setbindaddress() {
 bind_address = '"${bindaddr}"'
 '
   echo "${bindinifile}" > /opt/couchdb/etc/default.d/10-bind-address.ini
+}
+
+setsinglenode() {
+  # don't overwrite an n value already in an ini file
+  # other than default.ini
+  for i in /opt/couchdb/etc/default.d/*.ini \
+      /opt/couchdb/etc/local.ini \
+      /opt/couchdb/etc/local.d/*.ini; do
+    if grep -q '^n \?= ' $i >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+
+  singlenodeinifile='
+# Package-introduced single node file
+[cluster]
+n = 1
+'
+  echo "${singlenodeinifile}" > /opt/couchdb/etc/default.d/5-single-node.ini
 }
 
 createdb() {
@@ -91,8 +110,22 @@ createdb() {
   if curl -s "${url}/${db}" | grep -q "${db}"; then
     return 0
   fi
-  curl -s -X PUT "${url}/${db}" >/dev/null 2>&1
+  curl -s -X PUT "${url}/${db}" >/dev/null 2>&1 || warnfail
   return $?
+}
+
+warnfail() {
+  # print a warning and exit without error
+  cat <<EOF
+WARNING: Unable to create standalone system databases.
+CouchDB may not have started correctly (no init?)
+Once CouchDB has started correctly, run the following:
+
+  curl -X PUT http://<admin-user>:<admin-pass>@127.0.0.1:5984/_users
+  curl -X PUT http://<admin-user>:<admin-pass>@127.0.0.1:5984/_replicator
+
+EOF
+  exit 0
 }
 
 case $1 in
@@ -101,7 +134,8 @@ case $1 in
       # Hack to make the upgrade from the 1.0.1 Ubuntu package more correct:
       chown root:root /etc/couchdb
       chown root:root /etc/couchdb/default.ini
-      chown -R root:root /etc/couchdb/default.d
+      chown root:root /etc/couchdb/default.d
+      chown root:root /etc/couchdb/default.d/*
       chmod 755 /etc/couchdb
       chmod 644 /etc/couchdb/default.ini
       chmod 755 /etc/couchdb/default.d
@@ -128,6 +162,7 @@ case $1 in
       ;;
       standalone)
         setbindaddress
+        setsinglenode
         if ! setadminpass; then
           password_error="yes"
         fi
@@ -152,9 +187,22 @@ case $1 in
     esac
 
     # These should be owned by the couchdb user and group:
-    chown -R couchdb:couchdb /opt/couchdb/etc
-    chown -R couchdb:couchdb /var/lib/couchdb
-    chown -R couchdb:couchdb /var/log/couchdb
+    for i in "/opt/couchdb/etc
+      /opt/couchdb/etc/*
+      /opt/couchdb/etc/default.d/*
+      /opt/couchdb/etc/local.d/*
+      /var/lib/couchdb
+      /var/lib/couchdb/*
+      /var/lib/couchdb/shards/*
+      /var/lib/couchdb/shards/*/*
+      /var/lib/couchdb/.shards/*
+      /var/lib/couchdb/.shards/*/*
+      /var/log/couchdb
+      /var/log/couchdb/*"
+    do
+      chown couchdb:couchdb $i >/dev/null 2>&1 || true
+    done
+      
     # These should also not be world readable or writable:
     find /opt/couchdb/etc -name *.ini -exec chmod 0640 {} \;
     chmod a+x /opt/couchdb/bin/couchup
