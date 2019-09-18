@@ -16,9 +16,8 @@
 
 override_dh_auto_clean:
 	dh_auto_clean
-	rm -f src/jiffy/compile_commands.json
-	#-mv src/mango/src/mango_cursor_text.erl.nocompile src/mango/src/mango_cursor_text.erl
-	#-mv src/mango/src/mango_cursor_text.nocompile src/mango/src/mango_cursor_text.erl
+	-mv src/mango/src/mango_cursor_text.erl.nocompile src/mango/src/mango_cursor_text.erl
+	-mv src/mango/src/mango_cursor_text.nocompile src/mango/src/mango_cursor_text.erl
 
 override_dh_auto_configure:
 	./configure -c
@@ -39,4 +38,8 @@ get-orig-source:
 
 # this allows us to use a fake/equivs libmozjs185-1.0 in automated testing
 override_dh_shlibdeps:
-	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
+	dh_shlibdeps -- --ignore-missing-info -xlibmozjs185-1.0
+
+# bintray doesn't support xz uploads :(
+override_dh_builddeb:
+	dh_builddeb -- -Zgzip
